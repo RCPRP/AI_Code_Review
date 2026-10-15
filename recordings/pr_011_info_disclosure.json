@@ -1,0 +1,58 @@
+{
+  "pr_id": "pr_011_info_disclosure",
+  "model": "google_genai:gemini-3.1-flash-lite",
+  "recorded_at": "2026-10-14T20:50:16+00:00",
+  "start": {
+    "reply": "Thanks for putting this together! I've taken a look, but I'll need you to make a couple of security fixes before I can sign off.\n\nSpecifically, the `debug_error` function exposes internal stack traces to the client, which is a major information disclosure risk, and the new `export_me` endpoint is returning `password_hash`, which violates our convention of never exposing hashes in responses. \n\nCould you please remove `debug_error` and filter the fields returned by `export_me` (or better yet, use the existing `UserPublic` schema)? I've recorded the details in the formal review\u2014let me know if you want to chat about the best way to handle debug info without leaking it to the public!",
+    "report": {
+      "verdict": "request_changes",
+      "summary": "The PR introduces critical security vulnerabilities: information disclosure through stack trace exposure and sensitive data exposure by including password hashes in an API response. These changes violate established team conventions.",
+      "findings": [
+        {
+          "severity": "critical",
+          "category": "security",
+          "file": "app/errors.py",
+          "line": 16,
+          "title": "Information disclosure via stack trace exposure",
+          "explanation": "The `debug_error` function exposes raw exception details and full stack traces to the client. This violates the security principle of not exposing internal system information to attackers and explicitly contradicts the project's strategy of using generic error messages (Convention 2).",
+          "suggestion": "Remove the `debug_error` function. In development, rely on server-side logging instead of client-side error propagation.",
+          "confidence": 1.0
+        },
+        {
+          "severity": "high",
+          "category": "security",
+          "file": "app/routes/users.py",
+          "line": 37,
+          "title": "Sensitive data exposure in user export",
+          "explanation": "The `export_me` endpoint returns the `password_hash` in the JSON response, violating Convention 10: \"Responses use UserPublic and never include password hashes.\"",
+          "suggestion": "Remove the password_hash field from the returned dictionary. Use a schema (like UserPublic) to enforce the allowed output.",
+          "confidence": 1.0
+        }
+      ]
+    },
+    "tool_calls": [
+      "git_changed_files",
+      "git_diff",
+      "task",
+      "submit_review"
+    ],
+    "latency_s": 19.8
+  },
+  "followups": [
+    {
+      "question": "Which issue should I fix first?",
+      "reply": "Both are critical security issues, but **the `export_me` endpoint (password hash exposure)** is likely the more straightforward one to fix. You can address that immediately by simply excluding the `password_hash` from the returned dictionary or, even better, using the `UserPublic` schema.\n\nFor `debug_error`, I recommend removing it entirely. If you need debug information during development, we should rely on server-side logging (which is what we already do in the rest of the application) rather than sending it back to the client.\n\nLet me know if you need help refactoring the `export_me` function to use `UserPublic`!",
+      "report": null
+    },
+    {
+      "question": "Show me the fixed code",
+      "reply": "Here is how I recommend fixing both issues.\n\n### 1. Fix for `app/routes/users.py`\nInstead of manually creating a dictionary, we can use the `UserPublic` schema, which is already designed to prevent password hash exposure.\n\n```python\n# app/routes/users.py\n\n@router.get(\"/api/users/me/export\", response_model=UserPublic)\ndef export_me(current_user: User = Depends(get_current_user)):\n    with get_db() as db:\n        # Re-fetch or use the current_user object directly if appropriate\n        row = db.execute(\"SELECT id, name, email FROM users WHERE id = ?\", (current_user.id,)).fetchone()\n    if row is None:\n        raise HTTPException(status_code=404, detail=\"User not found\")\n    return UserPublic(id=row[0], name=row[1], email=row[2])\n```\n\n### 2. Fix for `app/errors.py`\nSince `debug_error` poses a serious risk of leaking sensitive server state, the best path is to remove the function entirely and rely on our established pattern of server-side logging for debugging.\n\n```python\n# app/errors.py\n\n# Remove the entire debug_error function and the import traceback line.\n# We keep the unhandled_error function as it correctly logs locally \n# and returns a generic message to the client.\n```\n\nIf you apply these changes and push them, I'll be happy to re-review the PR!",
+      "report": null
+    },
+    {
+      "question": "Is any of this a false alarm?",
+      "reply": "No, these are definitely not false alarms. They are concrete security vulnerabilities that would be flagged in any production-level security audit:\n\n1.  **Password Hash Exposure:** Even if you think \"it's just a hash, not the password,\" providing an attacker with a list of hashed passwords allows them to perform offline brute-force or dictionary attacks to recover actual passwords. This is why **Convention 10** exists and why we never expose this data.\n2.  **Stack Trace Exposure:** `traceback.format_exc()` often contains file paths, library versions, database table names, and occasionally snippet of local variable state. This is exactly the kind of \"reconnaissance\" data that makes it trivial for an attacker to craft a targeted exploit against our stack.\n\nThese are standard industry \"Must Fix\" items. By removing them, you're not just following conventions\u2014you're preventing potential data breaches. If you're concerned about debugging, I'm happy to discuss how we can improve our logging format to make it easier for you to track down issues without putting that data on the wire!",
+      "report": null
+    }
+  ]
+}

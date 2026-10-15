@@ -1,0 +1,67 @@
+{
+  "pr_id": "pr_002_sql_injection",
+  "model": "google_genai:gemini-3.1-flash-lite",
+  "recorded_at": "2026-10-14T20:21:38+00:00",
+  "start": {
+    "reply": "Hi there! I've taken a look at your PR. While the idea of adding a user search is great, I've had to request changes because the implementation as currently written introduces a critical SQL injection vulnerability and misses some important security conventions.\n\nSpecifically, the use of an f-string in your database query needs to be replaced with a parameterized query, and the endpoint needs to require `get_current_user` to prevent unauthorized access. Also, let's make sure we use the `UserPublic` Pydantic model for the response to keep things consistent across the app.\n\nI've left specific details and suggestions in the review comments\u2014let me know if you want to walk through how to apply those fixes!",
+    "report": {
+      "verdict": "request_changes",
+      "summary": "The proposed change introduces a critical SQL injection vulnerability and fails to adhere to established authentication and response serialization conventions. I am requesting changes to address these security and consistency issues.",
+      "findings": [
+        {
+          "severity": "critical",
+          "category": "security",
+          "file": "app/routes/users.py",
+          "line": 38,
+          "title": "SQL Injection vulnerability",
+          "explanation": "The endpoint uses an f-string to construct a SQL query, which allows for SQL injection by an attacker injecting malicious characters into the 'q' parameter.",
+          "suggestion": "Use parameterized queries: db.execute(\"SELECT id, name, email FROM users WHERE name LIKE ?\", (f\"%{q}%\",))",
+          "confidence": 1.0
+        },
+        {
+          "severity": "high",
+          "category": "security",
+          "file": "app/routes/users.py",
+          "line": 35,
+          "title": "Missing authentication/authorization",
+          "explanation": "The endpoint does not require authentication, allowing unauthorized access to user data. Team convention #1 mandates that every endpoint touching user data must depend on `get_current_user`.",
+          "suggestion": "Add `current_user: User = Depends(get_current_user)` to the function signature.",
+          "confidence": 1.0
+        },
+        {
+          "severity": "medium",
+          "category": "maintainability",
+          "file": "app/routes/users.py",
+          "line": 39,
+          "title": "Violates response model convention",
+          "explanation": "The endpoint does not use the established `UserPublic` Pydantic model for response serialization, which is a violation of convention #10.",
+          "suggestion": "Use `response_model=List[UserPublic]` and return Pydantic models.",
+          "confidence": 1.0
+        }
+      ]
+    },
+    "tool_calls": [
+      "git_diff",
+      "task",
+      "submit_review"
+    ],
+    "latency_s": 22.5
+  },
+  "followups": [
+    {
+      "question": "Which issue should I fix first?",
+      "reply": "Definitely start with the **SQL injection** (the f-string in the query).\n\nIt\u2019s a critical security risk because it allows an attacker to manipulate your database directly through the search parameter. Fixing that is the most important step.\n\nAfter that, adding the `get_current_user` dependency is the next priority to ensure the endpoint is properly restricted. Once those are secure, updating the response model to use `UserPublic` will bring it in line with the project's standards.\n\nLet me know if you need help with the syntax for any of those changes!",
+      "report": null
+    },
+    {
+      "question": "Show me the fixed code",
+      "reply": "Here is how you can implement those fixes. \n\nTo handle the SQL injection, we switch to a parameterized query (passing the `LIKE` pattern as a parameter). We also add the `Depends` requirement and use the `response_model` for consistency.\n\n```python\nfrom typing import List\nfrom app.schemas import UserPublic # Make sure to import this\n\n@router.get(\"/api/users/search\", response_model=List[UserPublic])\ndef search_users(q: str, current_user: User = Depends(get_current_user)):\n    # The '%' wildcards are part of the parameter value, not the SQL string\n    query = \"SELECT id, name, email FROM users WHERE name LIKE ?\"\n    search_term = f\"%{q}%\"\n    \n    with get_db() as db:\n        rows = db.execute(query, (search_term,)).fetchall()\n    \n    return [UserPublic(id=r[0], name=r[1], email=r[2]) for r in rows]\n```\n\nA couple of notes:\n1. **Security:** The `?` prevents the SQL injection because the database driver treats `search_term` as literal data rather than executable code.\n2. **Consistency:** Using `response_model=List[UserPublic]` and the constructor `UserPublic(...)` ensures that your response strictly follows the project's Pydantic schema conventions.\n\nGive that a try, and let me know if it works as expected!",
+      "report": null
+    },
+    {
+      "question": "Is any of this a false alarm?",
+      "reply": "None of these are false alarms; they are all genuine issues that violate the project's security and architecture conventions.\n\n*   **SQL Injection:** This is not a false alarm. When you use an f-string to build a SQL query (`f\"... LIKE '%{q}%'\"`), the `q` variable is inserted directly into the query string before it reaches the database. If a user provides a value like `' OR 1=1 --`, they can alter the query's logic. Using `?` placeholders is the industry standard for preventing this.\n*   **Missing Authentication:** This is a security requirement for the project (Convention #1: \"Every endpoint that touches user data depends on `get_current_user`\"). Without it, any anonymous visitor can scrape your entire user database, which is likely not the intended behavior.\n*   **Response Model:** While this is more about consistency and maintainability than immediate exploitability, it is a project convention (Convention #10). Using `UserPublic` ensures that you don't accidentally leak sensitive fields (like a future `password_hash` column) if the underlying database schema changes.\n\nThese are standard safeguards\u2014I'm happy to help you implement them so the PR is ready to merge safely!",
+      "report": null
+    }
+  ]
+}

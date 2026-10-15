@@ -1,0 +1,48 @@
+{
+  "pr_id": "pr_013_cors_misconfiguration",
+  "model": "google_genai:gemini-3.1-flash-lite",
+  "recorded_at": "2026-10-14T20:53:39+00:00",
+  "start": {
+    "reply": "Hey! Thanks for putting this PR together.\n\nI've taken a look at the changes, and I'm afraid I have to request some changes before we can proceed. The new `CORSMiddleware` configuration\u2014specifically using `allow_origins=[\"*\"]` while `allow_credentials=True` is enabled\u2014introduces a critical security vulnerability. It essentially allows any website on the internet to make authenticated requests to your API, which is a major risk (see [CONVENTION #12](https://github.com/repo/blob/main/docs/CONVENTIONS.md)).\n\nInstead of adding a new middleware block, the best approach is to add the partner's specific domain to the `ALLOWED_ORIGINS` environment variable. This keeps our CORS policy strict and secure.\n\nLet me know if you have any questions about how to adjust the configuration!",
+    "report": {
+      "verdict": "request_changes",
+      "summary": "The PR introduces a severe security vulnerability by enabling wide-open CORS with credentials. I recommend removing the second middleware and properly configuring the existing one using the project's established settings pattern.",
+      "findings": [
+        {
+          "severity": "critical",
+          "category": "security",
+          "file": "app/main.py",
+          "line": 21,
+          "title": "Insecure CORS configuration (allow all origins with credentials)",
+          "explanation": "The newly added `CORSMiddleware` with `allow_origins=[\"*\"]` and `allow_credentials=True` completely negates the existing security protections. It allows any website to make authenticated requests to this API, which violates the team's security policy (CONVENTION #12) and introduces a high risk of CSRF attacks. You should instead add the partner's origin to the existing `settings.ALLOWED_ORIGINS` list.",
+          "suggestion": "Delete the newly added CORSMiddleware block and instead add the partner's domain to your `ALLOWED_ORIGINS` environment variable configuration.",
+          "confidence": 1.0
+        }
+      ]
+    },
+    "tool_calls": [
+      "git_diff",
+      "read_file",
+      "task",
+      "submit_review"
+    ],
+    "latency_s": 42.4
+  },
+  "followups": [
+    {
+      "question": "Which issue should I fix first?",
+      "reply": "You should definitely prioritize fixing the **insecure CORS configuration** in `app/main.py`.\n\nBecause that change introduces a critical security vulnerability, it takes precedence over everything else. Specifically, you should:\n\n1.  **Remove the second `CORSMiddleware` block** entirely.\n2.  **Update your deployment configuration** to include the partner's domain in the `ALLOWED_ORIGINS` environment variable (the one that feeds into `settings.ALLOWED_ORIGINS`).\n\nOnce you've done that, the existing `CORSMiddleware` (which is already configured correctly with `allow_credentials=True`) will handle the request safely. Does that make sense, or would you like me to clarify how the `ALLOWED_ORIGINS` environment variable is used?",
+      "report": null
+    },
+    {
+      "question": "Show me the fixed code",
+      "reply": "To fix the issue, you should remove the second `CORSMiddleware` block you added and ensure the partner's domain is added to the environment variable source for `settings.ALLOWED_ORIGINS`.\n\nHere is the clean state for `app/main.py`:\n\n```python\n# app/main.py\n\nfrom fastapi import FastAPI\nfrom fastapi.middleware.cors import CORSMiddleware\n\nfrom app.config import settings\nfrom app.errors import unhandled_error\nfrom app.routes import auth_routes, files, orders, users\n\napp = FastAPI()\n\n# This existing middleware is the correct place to handle your needs.\n# Simply add the partner's origin to settings.ALLOWED_ORIGINS \n# (typically via the ALLOWED_ORIGINS env var).\napp.add_middleware(\n    CORSMiddleware,\n    allow_origins=settings.ALLOWED_ORIGINS,\n    allow_credentials=True,\n    allow_methods=[\"GET\", \"POST\", \"PUT\", \"DELETE\"],\n    allow_headers=[\"Authorization\", \"Content-Type\"],\n)\n\napp.add_exception_handler(Exception, unhandled_error)\nfor r in (auth_routes, files, orders, users):\n    app.include_router(r.router)\n```\n\n**What you need to do:**\nInstead of modifying the code to allow `*`, you should ensure the environment where the app runs has the `ALLOWED_ORIGINS` environment variable set correctly (e.g., `ALLOWED_ORIGINS=https://app.example.com,https://partner.example.org`). The application will then automatically pick up the new domain via `app.config.settings` without any changes to the Python code.",
+      "report": null
+    },
+    {
+      "question": "Is any of this a false alarm?",
+      "reply": "No, this is definitely not a false alarm. It is a textbook security issue.\n\nWhen you use `allow_origins=[\"*\"]` in combination with `allow_credentials=True`, browsers will allow **any** website to make authenticated requests to your API.\n\nIf a user is logged into your site and visits a malicious, unrelated website, that malicious site can use the browser's credentials (like your session cookies) to perform unauthorized actions on your API\u2014such as reading data, making orders, or modifying user profiles\u2014without the user ever knowing. This completely bypasses the protections provided by your authentication and authorization logic.\n\nOur team conventions specifically highlight this risk in **CONVENTION #12**: *\"CORS origins come from `settings.ALLOWED_ORIGINS`. Never `*` with credentials.\"*\n\nBy using the environment variable approach instead, you ensure that only the specific, trusted partner domain has this level of access, which keeps your application secure.",
+      "report": null
+    }
+  ]
+}

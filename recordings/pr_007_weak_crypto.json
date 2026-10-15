@@ -1,0 +1,58 @@
+{
+  "pr_id": "pr_007_weak_crypto",
+  "model": "google_genai:gemini-3.1-flash-lite",
+  "recorded_at": "2026-10-14T20:43:38+00:00",
+  "start": {
+    "reply": "Hey! I've taken a look at the PR. Unfortunately, there are a couple of critical security issues with the new `app/security.py` additions that violate our security conventions.\n\nSpecifically:\n- `make_reset_token` uses the `random` module, which is predictable and not suitable for security tokens. Per our conventions, please use the `secrets` module instead.\n- `quick_hash` uses `md5`, which is considered cryptographically broken. We should be using the existing `hash_password` utility (which uses PBKDF2) for all password hashing.\n\nI've documented the details in the review above. Once those are swapped out for the secure, project-standard versions, I'm happy to take another look!",
+    "report": {
+      "verdict": "request_changes",
+      "summary": "The added functions for password resets utilize insecure random number generation and a broken hashing algorithm. Both must be replaced with the project-approved security primitives (`secrets` module and `hash_password`).",
+      "findings": [
+        {
+          "severity": "critical",
+          "category": "security",
+          "file": "app/security.py",
+          "line": 57,
+          "title": "Insecure token generation using random module",
+          "explanation": "The function `make_reset_token` uses the `random` module, which is not cryptographically secure and can be predicted. Team convention 6 requires tokens to be generated using the `secrets` module.",
+          "suggestion": "Use `secrets.token_urlsafe()` or similar functions from the `secrets` module instead of `random.randint`.",
+          "confidence": 1.0
+        },
+        {
+          "severity": "critical",
+          "category": "security",
+          "file": "app/security.py",
+          "line": 61,
+          "title": "Use of weak MD5 hashing algorithm",
+          "explanation": "The function `quick_hash` uses `md5`, which is a weak and broken hashing algorithm. Project conventions require passwords to be hashed using the `pbkdf2_hmac` implementation provided in `app/security.py`.",
+          "suggestion": "Use the existing `hash_password` function instead of `hashlib.md5`.",
+          "confidence": 1.0
+        }
+      ]
+    },
+    "tool_calls": [
+      "git_changed_files",
+      "git_diff",
+      "task",
+      "submit_review"
+    ],
+    "latency_s": 32.5
+  },
+  "followups": [
+    {
+      "question": "Which issue should I fix first?",
+      "reply": "You should fix them both at the same time\u2014they are both critical security flaws, and you'll likely be changing both functions in the same file (`app/security.py`) anyway. \n\nNeither is significantly \"harder\" to fix than the other, so just prioritize getting the code aligned with our security standards:\n\n1.  **For `make_reset_token`**: Replace `random.randint(...)` with `secrets.token_urlsafe(32)` (or use `secrets.randbelow` if you specifically need a numeric-only token).\n2.  **For `quick_hash`**: Delete it entirely and replace its usage with the existing `hash_password` function.\n\nLet me know if you run into any trouble swapping those out!",
+      "report": null
+    },
+    {
+      "question": "Show me the fixed code",
+      "reply": "Here is how you can update `app/security.py` to align with our security standards.\n\nYou can remove the `import random` line and the two new functions, then implement them as shown below:\n\n```python\ndef make_reset_token() -> str:\n    # Use secrets for cryptographically strong tokens\n    return secrets.token_urlsafe(32)\n\n# quick_hash is no longer needed; please use hash_password directly \n# where you were intending to use quick_hash.\n```\n\nIf you specifically need the reset token to be a **6-digit numeric code** (as your original `random.randint(100000, 999999)` suggested), you can do this securely:\n\n```python\ndef make_reset_token() -> str:\n    # Securely generate a 6-digit numeric string\n    return \"\".join(str(secrets.randbelow(10)) for _ in range(6))\n```\n\nAnd for hashing, please just call `hash_password(password)` wherever you planned to call `quick_hash`. This will ensure you are using the PBKDF2 scheme with a salt, which keeps our password storage consistent and secure.\n\nDoes that help you get it sorted?",
+      "report": null
+    },
+    {
+      "question": "Is any of this a false alarm?",
+      "reply": "No, these are definitely not false alarms. They are standard, high-impact security findings.\n\nHere is the breakdown of why they are critical:\n\n1.  **`random.randint` is predictable:** The Python `random` module is a PRNG (Pseudo-Random Number Generator). Its sequence is deterministic if an attacker can guess the seed or observe enough past outputs. For a password reset token, an attacker who predicts the next token can hijack any account that requests a password reset. The `secrets` module is specifically designed to use cryptographically secure sources of entropy provided by the operating system, which is what we need for tokens.\n2.  **`MD5` is broken:** MD5 is extremely fast, which makes it terrible for passwords because an attacker can compute billions of guesses per second to brute-force a hash. It is also cryptographically broken regarding collision attacks. We use `pbkdf2_hmac` with 600,000 iterations precisely because it is *slow*, making brute-force attacks computationally infeasible.\n\nUsing the project's established security primitives is the best way to ensure we don't accidentally introduce vulnerabilities that would bypass our security controls. If you're planning on using these in a new route, make sure that route is also protected by `@rate_limit` (Convention 8), as that is another key layer of defense for reset tokens!",
+      "report": null
+    }
+  ]
+}

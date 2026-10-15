@@ -1,0 +1,525 @@
+{
+  "model": "google_genai:gemini-3.1-flash-lite",
+  "recorded_at": "2026-10-14T21:01:52+00:00",
+  "metrics": {
+    "diff_only": {
+      "precision": 0.778,
+      "recall": 0.7,
+      "f1": 0.737,
+      "errors": 0,
+      "avg_latency_s": 5.6,
+      "avg_context_chars": 0
+    },
+    "context_aware": {
+      "precision": 0.824,
+      "recall": 0.867,
+      "f1": 0.845,
+      "errors": 0,
+      "avg_latency_s": 5.5,
+      "avg_context_chars": 5874
+    }
+  },
+  "per_pr": [
+    {
+      "pr": "pr_001_auth_bypass",
+      "approach": "diff_only",
+      "expected": 2,
+      "caught": 1,
+      "findings": 1,
+      "error": null
+    },
+    {
+      "pr": "pr_001_auth_bypass",
+      "approach": "context_aware",
+      "expected": 2,
+      "caught": 2,
+      "findings": 2,
+      "error": null
+    },
+    {
+      "pr": "pr_002_sql_injection",
+      "approach": "diff_only",
+      "expected": 2,
+      "caught": 1,
+      "findings": 1,
+      "error": null
+    },
+    {
+      "pr": "pr_002_sql_injection",
+      "approach": "context_aware",
+      "expected": 2,
+      "caught": 2,
+      "findings": 3,
+      "error": null
+    },
+    {
+      "pr": "pr_003_hardcoded_secret",
+      "approach": "diff_only",
+      "expected": 2,
+      "caught": 1,
+      "findings": 2,
+      "error": null
+    },
+    {
+      "pr": "pr_003_hardcoded_secret",
+      "approach": "context_aware",
+      "expected": 2,
+      "caught": 2,
+      "findings": 2,
+      "error": null
+    },
+    {
+      "pr": "pr_004_missing_error_handling",
+      "approach": "diff_only",
+      "expected": 2,
+      "caught": 1,
+      "findings": 3,
+      "error": null
+    },
+    {
+      "pr": "pr_004_missing_error_handling",
+      "approach": "context_aware",
+      "expected": 2,
+      "caught": 2,
+      "findings": 3,
+      "error": null
+    },
+    {
+      "pr": "pr_005_race_condition",
+      "approach": "diff_only",
+      "expected": 2,
+      "caught": 1,
+      "findings": 2,
+      "error": null
+    },
+    {
+      "pr": "pr_005_race_condition",
+      "approach": "context_aware",
+      "expected": 2,
+      "caught": 2,
+      "findings": 3,
+      "error": null
+    },
+    {
+      "pr": "pr_006_xss_vulnerability",
+      "approach": "diff_only",
+      "expected": 2,
+      "caught": 1,
+      "findings": 1,
+      "error": null
+    },
+    {
+      "pr": "pr_006_xss_vulnerability",
+      "approach": "context_aware",
+      "expected": 2,
+      "caught": 2,
+      "findings": 3,
+      "error": null
+    },
+    {
+      "pr": "pr_007_weak_crypto",
+      "approach": "diff_only",
+      "expected": 2,
+      "caught": 2,
+      "findings": 2,
+      "error": null
+    },
+    {
+      "pr": "pr_007_weak_crypto",
+      "approach": "context_aware",
+      "expected": 2,
+      "caught": 2,
+      "findings": 2,
+      "error": null
+    },
+    {
+      "pr": "pr_008_missing_rate_limit",
+      "approach": "diff_only",
+      "expected": 2,
+      "caught": 2,
+      "findings": 3,
+      "error": null
+    },
+    {
+      "pr": "pr_008_missing_rate_limit",
+      "approach": "context_aware",
+      "expected": 2,
+      "caught": 2,
+      "findings": 3,
+      "error": null
+    },
+    {
+      "pr": "pr_009_insecure_deserialization",
+      "approach": "diff_only",
+      "expected": 2,
+      "caught": 1,
+      "findings": 1,
+      "error": null
+    },
+    {
+      "pr": "pr_009_insecure_deserialization",
+      "approach": "context_aware",
+      "expected": 2,
+      "caught": 1,
+      "findings": 1,
+      "error": null
+    },
+    {
+      "pr": "pr_010_missing_input_validation",
+      "approach": "diff_only",
+      "expected": 2,
+      "caught": 1,
+      "findings": 2,
+      "error": null
+    },
+    {
+      "pr": "pr_010_missing_input_validation",
+      "approach": "context_aware",
+      "expected": 2,
+      "caught": 1,
+      "findings": 1,
+      "error": null
+    },
+    {
+      "pr": "pr_011_info_disclosure",
+      "approach": "diff_only",
+      "expected": 2,
+      "caught": 2,
+      "findings": 2,
+      "error": null
+    },
+    {
+      "pr": "pr_011_info_disclosure",
+      "approach": "context_aware",
+      "expected": 2,
+      "caught": 2,
+      "findings": 2,
+      "error": null
+    },
+    {
+      "pr": "pr_012_path_traversal",
+      "approach": "diff_only",
+      "expected": 2,
+      "caught": 2,
+      "findings": 2,
+      "error": null
+    },
+    {
+      "pr": "pr_012_path_traversal",
+      "approach": "context_aware",
+      "expected": 2,
+      "caught": 2,
+      "findings": 3,
+      "error": null
+    },
+    {
+      "pr": "pr_013_cors_misconfiguration",
+      "approach": "diff_only",
+      "expected": 2,
+      "caught": 1,
+      "findings": 1,
+      "error": null
+    },
+    {
+      "pr": "pr_013_cors_misconfiguration",
+      "approach": "context_aware",
+      "expected": 2,
+      "caught": 1,
+      "findings": 2,
+      "error": null
+    },
+    {
+      "pr": "pr_014_timing_attack",
+      "approach": "diff_only",
+      "expected": 2,
+      "caught": 2,
+      "findings": 2,
+      "error": null
+    },
+    {
+      "pr": "pr_014_timing_attack",
+      "approach": "context_aware",
+      "expected": 2,
+      "caught": 2,
+      "findings": 2,
+      "error": null
+    },
+    {
+      "pr": "pr_015_unvalidated_redirect",
+      "approach": "diff_only",
+      "expected": 2,
+      "caught": 2,
+      "findings": 2,
+      "error": null
+    },
+    {
+      "pr": "pr_015_unvalidated_redirect",
+      "approach": "context_aware",
+      "expected": 2,
+      "caught": 1,
+      "findings": 2,
+      "error": null
+    }
+  ],
+  "issues": {
+    "pr_001_auth_bypass": [
+      {
+        "id": "auth",
+        "description": "violates mandatory Depends(get_current_user) authentication pattern"
+      },
+      {
+        "id": "errors",
+        "description": "missing try/except with logging around the database write, unlike other write endpoints"
+      }
+    ],
+    "pr_002_sql_injection": [
+      {
+        "id": "sqli",
+        "description": "SQL injection: user input interpolated into the query"
+      },
+      {
+        "id": "auth",
+        "description": "search endpoint has no Depends(get_current_user)"
+      }
+    ],
+    "pr_003_hardcoded_secret": [
+      {
+        "id": "secret",
+        "description": "hardcoded live API key in source"
+      },
+      {
+        "id": "env",
+        "description": "violates environment variable pattern for secrets (app.config.settings)"
+      }
+    ],
+    "pr_004_missing_error_handling": [
+      {
+        "id": "leak",
+        "description": "returns raw exception text to the client instead of a generic 500"
+      },
+      {
+        "id": "notfound",
+        "description": "fetchone() can return None for a missing/other user's order and the error is swallowed as a 200"
+      }
+    ],
+    "pr_005_race_condition": [
+      {
+        "id": "lock",
+        "description": "violates mandatory FOR UPDATE locking pattern for inventory (race condition)"
+      },
+      {
+        "id": "qty",
+        "description": "quantity is not validated as positive, so a negative quantity increases stock"
+      }
+    ],
+    "pr_006_xss_vulnerability": [
+      {
+        "id": "xss",
+        "description": "unescaped user input rendered as HTML (XSS)"
+      },
+      {
+        "id": "bio",
+        "description": "bio comes from a query parameter instead of the stored profile, so anyone can craft a page"
+      }
+    ],
+    "pr_007_weak_crypto": [
+      {
+        "id": "random",
+        "description": "violates secrets module requirement for tokens (random is predictable)"
+      },
+      {
+        "id": "md5",
+        "description": "MD5 used for password hashing instead of hash_password (PBKDF2)"
+      }
+    ],
+    "pr_008_missing_rate_limit": [
+      {
+        "id": "ratelimit",
+        "description": "auth endpoint missing @rate_limit, so 6-digit codes can be brute-forced"
+      },
+      {
+        "id": "expiry",
+        "description": "code expiry (5 minutes) is never checked"
+      }
+    ],
+    "pr_009_insecure_deserialization": [
+      {
+        "id": "pickle",
+        "description": "pickle.loads on untrusted input allows remote code execution"
+      },
+      {
+        "id": "size",
+        "description": "no limit on the uploaded body size (settings.MAX_UPLOAD_BYTES)"
+      }
+    ],
+    "pr_010_missing_input_validation": [
+      {
+        "id": "age",
+        "description": "age has no bounds (UserProfile requires 13-130)"
+      },
+      {
+        "id": "email",
+        "description": "email is a plain str, not validated as an email (EmailStr)"
+      }
+    ],
+    "pr_011_info_disclosure": [
+      {
+        "id": "trace",
+        "description": "stack traces and exception text returned to clients"
+      },
+      {
+        "id": "hash",
+        "description": "password hash included in the export response (use UserPublic)"
+      }
+    ],
+    "pr_012_path_traversal": [
+      {
+        "id": "traversal",
+        "description": "path traversal: user path not passed through safe_join"
+      },
+      {
+        "id": "auth",
+        "description": "invoice download has no Depends(get_current_user)"
+      }
+    ],
+    "pr_013_cors_misconfiguration": [
+      {
+        "id": "wildcard",
+        "description": "wildcard CORS origin instead of settings.ALLOWED_ORIGINS / the partner origin"
+      },
+      {
+        "id": "creds",
+        "description": "credentials allowed together with a wildcard origin"
+      }
+    ],
+    "pr_014_timing_attack": [
+      {
+        "id": "timing",
+        "description": "secret compared with == instead of secrets.compare_digest (timing attack)"
+      },
+      {
+        "id": "logged",
+        "description": "API key written to logs"
+      }
+    ],
+    "pr_015_unvalidated_redirect": [
+      {
+        "id": "redirect",
+        "description": "open redirect: `next` not checked with is_safe_redirect"
+      },
+      {
+        "id": "token",
+        "description": "login token is never verified before being set as the session"
+      }
+    ]
+  },
+  "caught": {
+    "pr_001_auth_bypass|diff_only": [
+      "auth"
+    ],
+    "pr_001_auth_bypass|context_aware": [
+      "auth",
+      "errors"
+    ],
+    "pr_002_sql_injection|diff_only": [
+      "sqli"
+    ],
+    "pr_002_sql_injection|context_aware": [
+      "sqli",
+      "auth"
+    ],
+    "pr_003_hardcoded_secret|diff_only": [
+      "secret"
+    ],
+    "pr_003_hardcoded_secret|context_aware": [
+      "secret",
+      "env"
+    ],
+    "pr_004_missing_error_handling|diff_only": [
+      "leak"
+    ],
+    "pr_004_missing_error_handling|context_aware": [
+      "leak",
+      "notfound"
+    ],
+    "pr_005_race_condition|diff_only": [
+      "lock"
+    ],
+    "pr_005_race_condition|context_aware": [
+      "lock",
+      "qty"
+    ],
+    "pr_006_xss_vulnerability|diff_only": [
+      "xss"
+    ],
+    "pr_006_xss_vulnerability|context_aware": [
+      "xss",
+      "bio"
+    ],
+    "pr_007_weak_crypto|diff_only": [
+      "random",
+      "md5"
+    ],
+    "pr_007_weak_crypto|context_aware": [
+      "random",
+      "md5"
+    ],
+    "pr_008_missing_rate_limit|diff_only": [
+      "ratelimit",
+      "expiry"
+    ],
+    "pr_008_missing_rate_limit|context_aware": [
+      "ratelimit",
+      "expiry"
+    ],
+    "pr_009_insecure_deserialization|diff_only": [
+      "pickle"
+    ],
+    "pr_009_insecure_deserialization|context_aware": [
+      "pickle"
+    ],
+    "pr_010_missing_input_validation|diff_only": [
+      "email"
+    ],
+    "pr_010_missing_input_validation|context_aware": [
+      "age"
+    ],
+    "pr_011_info_disclosure|diff_only": [
+      "trace",
+      "hash"
+    ],
+    "pr_011_info_disclosure|context_aware": [
+      "trace",
+      "hash"
+    ],
+    "pr_012_path_traversal|diff_only": [
+      "traversal",
+      "auth"
+    ],
+    "pr_012_path_traversal|context_aware": [
+      "traversal",
+      "auth"
+    ],
+    "pr_013_cors_misconfiguration|diff_only": [
+      "wildcard"
+    ],
+    "pr_013_cors_misconfiguration|context_aware": [
+      "wildcard"
+    ],
+    "pr_014_timing_attack|diff_only": [
+      "timing",
+      "logged"
+    ],
+    "pr_014_timing_attack|context_aware": [
+      "timing",
+      "logged"
+    ],
+    "pr_015_unvalidated_redirect|diff_only": [
+      "redirect",
+      "token"
+    ],
+    "pr_015_unvalidated_redirect|context_aware": [
+      "redirect"
+    ]
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "pr_id": "pr_009_insecure_deserialization",
+  "model": "google_genai:gemini-3.1-flash-lite",
+  "recorded_at": "2026-10-14T20:59:10+00:00",
+  "start": {
+    "reply": "Hi! Thanks for working on the \"Import saved carts\" feature.\n\nI've reviewed the PR and have to flag a critical security issue: the use of `pickle.loads` in the `/api/cart/import` endpoint. Using `pickle` to process request bodies allows an attacker to execute arbitrary code on the server, which is a high-risk security vulnerability.\n\nPer the project conventions (#13), we must use `json` or Pydantic for parsing untrusted data, never `pickle`. Please replace the `pickle` deserialization with a JSON-based approach and define a Pydantic model to validate the expected structure of the cart data.\n\nI've submitted the formal review\u2014let me know if you'd like to discuss the best way to implement the JSON parsing for this.",
+    "report": {
+      "verdict": "request_changes",
+      "summary": "The PR introduces a critical security vulnerability by using `pickle` for deserializing user-supplied data, which allows for remote code execution. This must be replaced with a secure method like JSON parsing.",
+      "findings": [
+        {
+          "severity": "critical",
+          "category": "security",
+          "file": "app/routes/orders.py",
+          "line": 43,
+          "title": "Critical Security Vulnerability: Unsafe Deserialization with pickle",
+          "explanation": "The code uses `pickle.loads` to process the request body, which is a known vulnerability that leads to arbitrary code execution. `pickle` should never be used to deserialize untrusted data.",
+          "suggestion": "Use JSON serialization/deserialization instead. Define a Pydantic model for the cart structure and use FastAPI's automatic request body parsing.",
+          "confidence": 1.0
+        }
+      ]
+    },
+    "tool_calls": [
+      "git_diff",
+      "task",
+      "submit_review"
+    ],
+    "latency_s": 15.0
+  },
+  "followups": [
+    {
+      "question": "Which issue should I fix first?",
+      "reply": "The **critical security issue** with `pickle` must be fixed first. It is a showstopper because it allows anyone with access to the endpoint to take full control of the server.\n\nEverything else in the PR is secondary to replacing `pickle.loads` with a secure approach. Once you've removed the `pickle` dependency, you can focus on defining a proper Pydantic model for the cart data (as per convention #9) and using FastAPI's built-in JSON deserialization, which will make the code both secure and much easier to maintain.\n\nWould you like some help drafting the Pydantic model for the cart data?",
+      "report": null
+    },
+    {
+      "question": "Show me the fixed code",
+      "reply": "To fix this, you should define a Pydantic model representing the expected cart structure and let FastAPI handle the JSON parsing for you.\n\nHere is how you can update `app/routes/orders.py`:\n\n### 1. Update `app/schemas.py` (Add a model)\n```python\n# app/schemas.py\n\nclass CartItem(BaseModel):\n    product_id: int\n    quantity: int\n\nclass CartImport(BaseModel):\n    items: list[CartItem]\n```\n\n### 2. Update `app/routes/orders.py`\nRemove the `pickle` imports and use the model in your endpoint:\n\n```python\n# app/routes/orders.py\nfrom app.schemas import User, CartImport  # Import your new schema\n\n@router.post(\"/api/cart/import\")\nasync def import_cart(cart: CartImport, current_user: User = Depends(get_current_user)):\n    # Now 'cart' is a validated Pydantic object\n    return {\"items_imported\": len(cart.items)}\n```\n\n**Why this is better:**\n1.  **Security:** JSON is a data-only format; it cannot execute arbitrary code.\n2.  **Validation:** FastAPI will automatically return a `422 Unprocessable Entity` error if the user sends data that doesn't match your schema.\n3.  **Convention:** This follows project rule #9 (request bodies are Pydantic models) and rule #13 (parse untrusted data with JSON or Pydantic).\n\nMake sure to remove the `import pickle` line entirely from the file! Does this look like a clear path forward for your implementation?",
+      "report": null
+    },
+    {
+      "question": "Is any of this a false alarm?",
+      "reply": "No, this is definitely **not** a false alarm. The use of `pickle` on untrusted input is a textbook security vulnerability.\n\nIn Python, `pickle` is explicitly documented as **not secure**. When you call `pickle.loads()` on data provided in a request body, you are giving an attacker the ability to inject a malicious byte stream that, when \"unpickled,\" runs arbitrary code on your server. Because this endpoint is reachable via an API, any authenticated user (or anyone who can reach the endpoint if authorization isn't perfectly tight) could potentially gain full control of the host machine.\n\nGiven that project convention #13 explicitly forbids `pickle`, this is a clear-cut violation that poses a severe risk to the infrastructure. Moving to JSON + Pydantic as I suggested is the standard, safe industry practice.",
+      "report": null
+    }
+  ]
+}

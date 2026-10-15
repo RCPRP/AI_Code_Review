@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Code Review Agent</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1d2330; --muted: #667085; --border: #e3e6eb;
+    --accent: #3b5bdb; --accent-text: #ffffff; --add-bg: #e8f7ee; --add: #1a7f37; --del-bg: #fdecec; --del: #b42318;
+    --hunk: #6941c6; --code-bg: #f2f4f7;
+    --sev-critical: #b42318; --sev-high: #d9480f; --sev-medium: #b7791f; --sev-low: #2f6fbf; --sev-nit: #667085;
+    --you-bg: #eef2ff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1218; --panel: #171b23; --text: #e6e9ef; --muted: #98a2b3; --border: #2a303b;
+      --accent: #7c93ff; --accent-text: #0f1218; --add-bg: #12261a; --add: #5dd486; --del-bg: #2c1515; --del: #ff8a80;
+      --hunk: #b9a3ff; --code-bg: #1f2430; --you-bg: #1e2540;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--panel); }
+  header h1 { font-size: 16px; margin: 0; }
+  .badge { font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
+  .badge.rec, .rec-tag { color: var(--sev-medium); border-color: var(--sev-medium); }
+  .rec-tag { font-size: 11px; border: 1px solid; border-radius: 999px; padding: 0 6px; margin-left: 6px; }
+  .trail { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  main { display: grid; grid-template-columns: 260px minmax(0, 1fr) 380px; height: calc(100vh - 53px); }
+  aside, section { overflow: auto; }
+  #prs { border-right: 1px solid var(--border); background: var(--panel); }
+  #prs button { display: block; width: 100%; text-align: left; padding: 10px 14px; border: 0; border-bottom: 1px solid var(--border); background: none; color: var(--text); cursor: pointer; font: inherit; }
+  #prs button:hover { background: var(--bg); }
+  #prs button.active { background: var(--you-bg); border-left: 3px solid var(--accent); }
+  #prs .id { font-size: 12px; color: var(--muted); }
+  #detail { padding: 16px 20px; }
+  #detail h2 { margin: 0 0 4px; font-size: 18px; }
+  .task { color: var(--muted); margin: 0 0 12px; }
+  .row { display: flex; gap: 8px; align-items: center; margin: 12px 0; flex-wrap: wrap; }
+  .btn { background: var(--accent); color: var(--accent-text); border: 0; border-radius: 8px; padding: 8px 14px; font: inherit; font-weight: 600; cursor: pointer; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .status { color: var(--muted); }
+  .error { color: var(--sev-critical); }
+  pre.diff { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 8px 0; overflow: auto; font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; margin: 0; }
+  pre.diff span { display: block; padding: 0 12px; white-space: pre; }
+  .add { background: var(--add-bg); color: var(--add); } .del { background: var(--del-bg); color: var(--del); } .hunk { color: var(--hunk); } .meta { color: var(--muted); }
+  details.diffbox summary { cursor: pointer; color: var(--muted); margin-bottom: 8px; }
+  .verdict { font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: .04em; }
+  .finding { background: var(--panel); border: 1px solid var(--border); border-left: 4px solid var(--sev); border-radius: 8px; padding: 10px 12px; margin: 8px 0; }
+  .finding .top { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .sev { color: var(--sev); font-weight: 700; font-size: 12px; text-transform: uppercase; }
+  .where { font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--muted); }
+  .finding p { margin: 6px 0 0; }
+  .finding .ask { margin-top: 6px; background: none; border: 0; color: var(--accent); cursor: pointer; padding: 0; font: inherit; font-size: 13px; }
+  #chat { border-left: 1px solid var(--border); background: var(--panel); display: flex; flex-direction: column; }
+  #chat h3 { margin: 0; padding: 12px 14px; font-size: 14px; border-bottom: 1px solid var(--border); }
+  #msgs { flex: 1; overflow: auto; padding: 12px 14px; }
+  .msg { margin: 0 0 12px; padding: 8px 10px; border-radius: 10px; overflow-wrap: anywhere; }
+  .msg.you { background: var(--you-bg); margin-left: 32px; }
+  .msg.bot { background: var(--bg); margin-right: 8px; }
+  .msg .who { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+  .msg pre { background: var(--code-bg); padding: 8px; border-radius: 6px; overflow: auto; font: 12px/1.4 ui-monospace, Menlo, monospace; }
+  .msg code { background: var(--code-bg); padding: 0 3px; border-radius: 4px; font-size: 12px; }
+  .msg pre code { background: none; padding: 0; }
+  form { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--border); }
+  textarea { flex: 1; resize: none; height: 44px; border: 1px solid var(--border); border-radius: 8px; padding: 8px; background: var(--bg); color: var(--text); font: inherit; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 10px 6px; }
+  .chip { border: 1px solid var(--border); background: none; color: var(--text); border-radius: 999px; padding: 3px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+  .empty { color: var(--muted); padding: 24px 0; }
+  [hidden] { display: none !important; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin: 12px 0 20px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .card .num { font-size: 28px; font-weight: 700; line-height: 1.1; }
+  .card .lbl { color: var(--muted); font-size: 13px; }
+  .bars { display: grid; gap: 8px; margin: 8px 0 20px; }
+  .bar { display: grid; grid-template-columns: 140px 1fr 48px; gap: 10px; align-items: center; }
+  .bar .track { background: var(--border); border-radius: 6px; height: 14px; overflow: hidden; }
+  .bar .fill { height: 100%; background: var(--accent); border-radius: 6px; }
+  .bar .fill.muted { background: var(--muted); }
+  table.ov { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.ov th, table.ov td { text-align: left; padding: 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.ov tr.click { cursor: pointer; } table.ov tr.click:hover { background: var(--bg); }
+  .linkbtn { background: none; border: 0; color: var(--accent); cursor: pointer; font: inherit; padding: 0; margin-left: auto; }
+  h3.sec { font-size: 14px; margin: 8px 0 4px; }
+  @media (max-width: 900px) {
+    main { display: block; height: auto; }
+    #prs { border-right: 0; border-bottom: 1px solid var(--border); max-height: 220px; }
+    #chat { border-left: 0; border-top: 1px solid var(--border); min-height: 420px; }
+    #detail { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Code Review Agent</h1>
+  <span class="badge" id="model">…</span>
+  <span class="badge" id="mode"></span>
+  <button class="linkbtn" id="ovbtn">Overview</button>
+</header>
+<main>
+  <aside id="prs" aria-label="Pull requests"></aside>
+  <section id="detail"><p class="empty">Loading…</p></section>
+  <aside id="chat" aria-label="Chat with the reviewer">
+    <h3>Chat with the reviewer</h3>
+    <div id="msgs"><p class="empty">Run a review, then ask follow-up questions here.</p></div>
+    <div class="chips" id="chips" hidden></div>
+    <form id="form"><textarea id="input" placeholder="Ask about the review…" disabled></textarea><button class="btn" id="send" disabled>Send</button></form>
+  </aside>
+</main>
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const SEV = { critical: "--sev-critical", high: "--sev-high", medium: "--sev-medium", low: "--sev-low", nit: "--sev-nit" };
+const ORDER = ["critical", "high", "medium", "low", "nit"];
+let current = null, sessionId = null, busy = false;
+
+function md(text) {
+  // Minimal, safe markdown: escape first, then code fences, inline code, bold, line breaks.
+  const parts = esc(text).split(/```(?:\w+)?\n?([\s\S]*?)```/g);
+  return parts.map((p, i) => i % 2 ? `<pre><code>${p}</code></pre>`
+    : p.replace(/^#{1,6} (.*)$/gm, "<strong>$1</strong>").replace(/^\s*[-*] /gm, "• ").replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/\n/g, "<br>")).join("");
+}
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts });
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(body.detail || `HTTP ${r.status}`);
+  return body;
+}
+
+function header(r) {
+  const tag = r && r.recorded ? `<span class="rec-tag" title="Replayed from a real run with ${esc(r.recorded_model)}">recorded</span>` : "";
+  const upd = r && r.report_updated && r.turn !== "start" ? " · findings updated" : "";
+  return `<div class="who">Reviewer${upd}${tag}</div>`;
+}
+
+function trail(tools) {
+  if (!tools || !tools.length) return "";
+  const n = (name) => tools.filter((t) => t === name).length;
+  const reads = n("read_file") + n("grep") + n("glob") + n("ls"), git = n("git_diff") + n("git_changed_files"), subs = n("task");
+  const bits = [git && `read the diff`, reads && `read ${reads} file${reads > 1 ? "s" : ""}`, subs && `consulted ${subs} specialist${subs > 1 ? "s" : ""}`].filter(Boolean);
+  return bits.length ? `<div class="trail">🔎 ${bits.join(" · ")}</div>` : "";
+}
+
+function addMsg(who, text, r) {
+  const box = $("#msgs");
+  if (box.querySelector(".empty")) box.innerHTML = "";
+  const el = document.createElement("div");
+  el.className = `msg ${who}`;
+  el.innerHTML = (who === "you" ? `<div class="who">You</div>` : header(r)) + md(text) + (who === "bot" && r ? trail(r.tool_calls) : "");
+  box.appendChild(el);
+  box.scrollTop = box.scrollHeight;
+  return el;
+}
+
+function setChat(enabled) {
+  $("#input").disabled = $("#send").disabled = !enabled;
+  $("#chips").hidden = !sessionId;
+}
+
+function renderDiff(diff) {
+  return diff.split("\n").map((l) => {
+    const cls = l.startsWith("+++") || l.startsWith("---") || l.startsWith("diff ") || l.startsWith("index ") ? "meta"
+      : l.startsWith("@@") ? "hunk" : l.startsWith("+") ? "add" : l.startsWith("-") ? "del" : "";
+    return `<span class="${cls}">${esc(l) || " "}</span>`;
+  }).join("");
+}
+
+function renderReport(report) {
+  const box = $("#findings");
+  const fs = [...report.findings].sort((a, b) => ORDER.indexOf(a.severity) - ORDER.indexOf(b.severity));
+  box.innerHTML = `<div class="row"><span class="verdict" style="color:var(${report.verdict === "approve" ? "--add" : report.verdict === "comment" ? "--sev-medium" : "--sev-critical"})">${esc(report.verdict.replace("_", " "))}</span><span class="status">${fs.length} finding(s)</span></div>` +
+    fs.map((f, i) => `<div class="finding" style="--sev: var(${SEV[f.severity]})">
+      <div class="top"><span class="sev">${esc(f.severity)}</span><strong>${esc(f.title)}</strong></div>
+      <div class="where">${esc(f.file)}${f.line ? ":" + f.line : ""} · ${esc(f.category)} · ${Math.round(f.confidence * 100)}% confident</div>
+      <p>${esc(f.explanation)}</p><p><strong>Fix:</strong> ${md(f.suggestion)}</p>
+      <button class="ask" data-i="${i}">Ask about this →</button></div>`).join("");
+  box.querySelectorAll(".ask").forEach((b) => b.onclick = () => send(`Tell me more about "${fs[b.dataset.i].title}". Why does it matter, and what exactly should I change?`));
+}
+
+async function selectPr(id) {
+  if (busy) return;
+  document.querySelectorAll("#prs button").forEach((b) => b.classList.toggle("active", b.dataset.id === id));
+  sessionId = null; setChat(false);
+  $("#msgs").innerHTML = '<p class="empty">Run a review, then ask follow-up questions here.</p>';
+  $("#detail").innerHTML = '<p class="status">Loading…</p>';
+  current = await api(`/api/prs/${id}`);
+  $("#detail").innerHTML = `<h2>${esc(current.title)}</h2><p class="task">Task: ${esc(current.task_context)}</p>
+    <div class="row"><button class="btn" id="run">Run context-aware review</button><span class="status" id="status"></span></div>
+    <div id="findings"></div>
+    <details class="diffbox" open><summary>Diff</summary><pre class="diff">${renderDiff(current.diff)}</pre></details>`;
+  $("#run").onclick = runReview;
+}
+
+async function runReview() {
+  busy = true; $("#run").disabled = true;
+  $("#status").className = "status";
+  $("#status").textContent = "Reviewing: retrieving context, reading the repo, consulting the security and pattern specialists…";
+  const t0 = Date.now();
+  try {
+    const r = await api(`/api/prs/${current.id}/review`, { method: "POST" });
+    sessionId = r.session_id;
+    renderReport(r.report);
+    $("#status").textContent = r.recorded ? `Replayed a recorded run (${r.recorded_model})` : `Done in ${Math.round((Date.now() - t0) / 1000)}s`;
+    $("#detail details").open = false;
+    $("#msgs").innerHTML = "";
+    addMsg("bot", r.reply, { ...r, turn: "start" });
+    setChat(true);
+  } catch (e) {
+    $("#status").className = "status error"; $("#status").textContent = e.message;
+  } finally { busy = false; $("#run").disabled = false; }
+}
+
+async function send(text) {
+  text = (text || "").trim();
+  if (!text || !sessionId || busy) return;
+  busy = true; setChat(false); $("#input").value = "";
+  addMsg("you", text);
+  const thinking = addMsg("bot", "Thinking…");
+  try {
+    const r = await api(`/api/sessions/${sessionId}/messages`, { method: "POST", body: JSON.stringify({ message: text }) });
+    thinking.innerHTML = header(r) + md(r.reply) + trail(r.tool_calls);
+    if (r.report_updated && r.report) renderReport(r.report);
+  } catch (e) {
+    thinking.innerHTML = `<div class="who">Reviewer</div><span class="error">${esc(e.message)}</span>`;
+  } finally { busy = false; setChat(true); $("#input").focus(); }
+}
+
+$("#form").onsubmit = (e) => { e.preventDefault(); send($("#input").value); };
+$("#input").onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send($("#input").value); } };
+const pct = (v) => `${Math.round((v || 0) * 100)}%`;
+
+async function renderOverview() {
+  document.querySelectorAll("#prs button").forEach((b) => b.classList.remove("active"));
+  sessionId = null; setChat(false);
+  $("#msgs").innerHTML = '<p class="empty">Pick a PR and run a review, then ask follow-up questions here.</p>';
+  const ov = await api("/api/overview");
+  const sev = ov.severity, serious = (sev.critical || 0) + (sev.high || 0);
+  const total = Object.values(sev).reduce((a, b) => a + b, 0);
+  const blocked = ov.recorded.filter((p) => p.verdict === "request_changes").length;
+  let html = `<h2>Context-aware code review</h2>
+    <p class="task">The agent reads each PR together with the codebase: related code it retrieves, the team conventions, and the ticket. Then it talks with the author about what it found.</p>`;
+  if (ov.recorded.length) {
+    html += `<div class="cards">
+      <div class="card"><div class="num">${ov.recorded.length}</div><div class="lbl">pull requests reviewed</div></div>
+      <div class="card"><div class="num">${total}</div><div class="lbl">findings with file, line and fix</div></div>
+      <div class="card"><div class="num" style="color:var(--sev-critical)">${serious}</div><div class="lbl">critical or high severity</div></div>
+      <div class="card"><div class="num">${blocked}</div><div class="lbl">PRs blocked before merge</div></div></div>`;
+  }
+  const b = ov.benchmark;
+  if (b) {
+    const d = b.metrics.diff_only, c = b.metrics.context_aware;
+    const bar = (label, v, muted) => `<div class="bar"><span>${label}</span><div class="track"><div class="fill ${muted ? "muted" : ""}" style="width:${pct(v)}"></div></div><strong>${pct(v)}</strong></div>`;
+    const onlyCtx = [];
+    for (const [pr, issues] of Object.entries(b.issues)) for (const i of issues) {
+      const dc = (b.caught[`${pr}|diff_only`] || []).includes(i.id), cc = (b.caught[`${pr}|context_aware`] || []).includes(i.id);
+      if (cc && !dc) onlyCtx.push(i.description);
+    }
+    html += `<h3 class="sec">Planted bugs caught across 15 PRs (recall)</h3><div class="bars">${bar("Diff only", d.recall, true)}${bar("Context-aware", c.recall)}</div>
+      <h3 class="sec">Findings that were real issues (precision)</h3><div class="bars">${bar("Diff only", d.precision, true)}${bar("Context-aware", c.precision)}</div>
+      <p class="status">Benchmark: 30 real reviews with ${esc(b.model.replace("google_genai:", ""))}, scored against 2 planted bugs per PR.</p>`;
+    if (onlyCtx.length) html += `<h3 class="sec">Caught only with codebase context</h3><ul>${onlyCtx.slice(0, 8).map((t) => `<li>${esc(t)}</li>`).join("")}</ul>`;
+  }
+  if (ov.recorded.length) {
+    html += `<h3 class="sec">Reviews (click to open)</h3><table class="ov"><tr><th>PR</th><th>Verdict</th><th>Top finding</th></tr>` +
+      ov.recorded.map((p) => `<tr class="click" data-id="${esc(p.id)}"><td>${esc(p.title)}</td><td>${esc(p.verdict.replace("_", " "))}</td>
+        <td>${p.top ? `<span class="sev" style="--sev: var(${SEV[p.top.severity]})">${esc(p.top.severity)}</span> ${esc(p.top.title)}` : "none"}</td></tr>`).join("") + "</table>";
+  } else {
+    html += `<p class="empty">Pick a pull request on the left to run a review.</p>`;
+  }
+  $("#detail").innerHTML = html;
+  $("#detail").querySelectorAll("tr.click").forEach((r) => r.onclick = async () => { await selectPr(r.dataset.id); runReview(); });
+}
+
+$("#ovbtn").onclick = () => { if (!busy) renderOverview(); };
+
+(async () => {
+  const cfg = await api("/api/config");
+  $("#model").textContent = cfg.mode === "replay" ? "recorded runs" : cfg.model;
+  $("#mode").textContent = { auto: "recorded reviews · live chat", live: "live reviews", replay: "replay only" }[cfg.mode] || cfg.mode;
+  $("#mode").classList.toggle("rec", cfg.mode === "replay");
+  $("#chips").innerHTML = cfg.suggested_questions.map((q) => `<button class="chip">${esc(q)}</button>`).join("");
+  $("#chips").querySelectorAll(".chip").forEach((c) => c.onclick = () => send(c.textContent));
+  const prs = await api("/api/prs");
+  $("#prs").innerHTML = prs.map((p) => `<button data-id="${esc(p.id)}"><div>${esc(p.title)}</div><div class="id">${esc(p.id)}</div></button>`).join("");
+  $("#prs").querySelectorAll("button").forEach((b) => b.onclick = () => selectPr(b.dataset.id));
+  renderOverview();
+})();
+</script>
+</body>
+</html>

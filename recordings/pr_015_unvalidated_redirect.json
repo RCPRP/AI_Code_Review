@@ -1,0 +1,67 @@
+{
+  "pr_id": "pr_015_unvalidated_redirect",
+  "model": "google_genai:gemini-3.1-flash-lite",
+  "recorded_at": "2026-10-14T20:55:07+00:00",
+  "start": {
+    "reply": "Hey! Thanks for putting together this passwordless login feature. I've taken a look, and I'm afraid I have to request some changes before we can move forward. \n\nThe new `/api/login/link` endpoint has a few critical security issues:\n* **Session Injection:** It currently accepts an arbitrary `token` and sets it as the session cookie without verifying it. We need to ensure that the token is valid, hasn't expired, and belongs to a real user in our system before granting access.\n* **Open Redirect:** The `next` parameter isn't being validated, which could allow attackers to redirect users to malicious sites. We should use our `is_safe_redirect` helper here, just like in the regular login flow.\n* **Missing Rate Limiting:** Since this is an authentication endpoint, our conventions (Rule 8 in `docs/CONVENTIONS.md`) require it to be protected by `@rate_limit` to prevent brute-force attempts.\n\nI've detailed these in the formal review. Let me know if you want to chat through how to best integrate the token validation logic!",
+    "report": {
+      "verdict": "request_changes",
+      "summary": "The new `/api/login/link` endpoint has critical security flaws. It allows arbitrary session token injection, contains an open redirect vulnerability, and lacks necessary rate limiting. These issues must be addressed before the PR can be approved.",
+      "findings": [
+        {
+          "severity": "critical",
+          "category": "security",
+          "file": "app/routes/auth_routes.py",
+          "line": 20,
+          "title": "Lack of token validation on login_link endpoint",
+          "explanation": "The new endpoint accepts an arbitrary 'token' from the user and immediately sets it as a session cookie without validation. This allows attackers to forge sessions for arbitrary users.",
+          "suggestion": "Validate the token against the database/cache before creating the session. Ensure it is associated with a legitimate user and has not expired.",
+          "confidence": 1.0
+        },
+        {
+          "severity": "high",
+          "category": "security",
+          "file": "app/routes/auth_routes.py",
+          "line": 20,
+          "title": "Open redirect vulnerability",
+          "explanation": "The 'next' parameter is used for redirecting without validating if it is a safe, local path. This is a classic open redirect vulnerability.",
+          "suggestion": "Pass the 'next' parameter to 'is_safe_redirect' before using it in RedirectResponse.",
+          "confidence": 1.0
+        },
+        {
+          "severity": "high",
+          "category": "security",
+          "file": "app/routes/auth_routes.py",
+          "line": 20,
+          "title": "Missing rate limiting on authentication endpoint",
+          "explanation": "Authentication-related endpoints must use @rate_limit per team convention #8. This missing safeguard makes brute-forcing sessions easy.",
+          "suggestion": "Add the @rate_limit(max_calls=5, per_seconds=60) decorator to the login_link function.",
+          "confidence": 1.0
+        }
+      ]
+    },
+    "tool_calls": [
+      "git_diff",
+      "task",
+      "submit_review"
+    ],
+    "latency_s": 79.0
+  },
+  "followups": [
+    {
+      "question": "Which issue should I fix first?",
+      "reply": "I would recommend fixing them in this order:\n\n1.  **Session Injection:** This is the most critical issue. Setting a session cookie based on unvalidated input basically gives anyone the ability to log in as any user. Addressing this is the top priority.\n2.  **Open Redirect:** This is high severity. Once you've secured the token, you'll want to ensure that users aren't being sent off-site. You can reuse the existing `is_safe_redirect` utility.\n3.  **Rate Limiting:** This is also a security necessity, but it's more about hardening the endpoint against abuse rather than preventing the immediate vulnerability.\n\nIf you have a plan for how you intend to validate these tokens (e.g., checking a database table or a Redis cache), I'm happy to help you walk through the implementation!",
+      "report": null
+    },
+    {
+      "question": "Show me the fixed code",
+      "reply": "To fix these, you'll want to integrate the existing `is_safe_redirect` and `rate_limit` helpers, and add the necessary validation logic. \n\nAssuming you have a way to look up your tokens (e.g., a function like `get_user_by_token`), your implementation should look something like this:\n\n```python\nfrom app.security import generate_token, is_safe_redirect, rate_limit, get_user_by_token\n\n@router.get(\"/api/login/link\")\n@rate_limit(max_calls=5, per_seconds=60)\ndef login_link(token: str, next: str = \"/\"):\n    # 1. Validate the redirect target\n    if not is_safe_redirect(next):\n        raise HTTPException(status_code=400, detail=\"Invalid redirect\")\n        \n    # 2. Validate the token (you'll need to implement this lookup)\n    user = get_user_by_token(token)\n    if not user:\n        raise HTTPException(status_code=401, detail=\"Invalid or expired token\")\n        \n    # 3. Create the session\n    response = RedirectResponse(next)\n    response.set_cookie(\"session\", token, httponly=True, secure=True, samesite=\"lax\")\n    return response\n```\n\n**A few notes on the implementation:**\n*   **Token Lookup:** You need a function like `get_user_by_token` (you might need to add this to `app/auth.py` or `app/security.py`) to verify that the token exists in your database and isn't expired.\n*   **Don't Re-invent:** Since you are already using `is_safe_redirect` and `rate_limit` elsewhere, definitely leverage those existing imports rather than writing your own logic.\n\nDoes that structure align with where you're storing your login tokens? If you're not sure how to implement the token verification, let me know where you're keeping them, and I can point you in the right direction!",
+      "report": null
+    },
+    {
+      "question": "Is any of this a false alarm?",
+      "reply": "No, these are definitely not false alarms. They are standard, high-impact security vulnerabilities:\n\n1.  **Session Injection (Critical):** If I send you a link with `?token=random_junk`, the current code will blindly set that `random_junk` as your session cookie. Since the application likely trusts that cookie for authentication, I have effectively bypassed all login requirements.\n2.  **Open Redirect (High):** This is a classic vulnerability where an attacker sends a user a link to your site that immediately redirects them to a phishing or malware site. Because the redirect happens on your trusted domain, users are much more likely to click it.\n3.  **Missing Rate Limiting (High):** Authentication endpoints are high-value targets. Without rate limiting, an attacker could programmatically test millions of potential token strings per minute against your database or cache until they happen to hit a valid one.\n\nThe current implementation is essentially an open door, so these are definitely real issues that need to be addressed before this code goes live.",
+      "report": null
+    }
+  ]
+}

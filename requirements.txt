@@ -1,0 +1,20 @@
+# Same dependencies as pyproject.toml, for pip users:  pip install -r requirements.txt
+deepagents==0.7.0
+langchain>=1.3,<2
+langgraph>=1.2,<2
+langchain-google-genai==4.3.2
+langchain-anthropic>=1.5
+langchain-openai>=1.4
+chromadb==1.5.9
+fastapi==0.128.8
+uvicorn==0.39.0
+httpx
+pandas==2.3.3
+numpy==2.0.2
+plotly==6.8.0
+kaleido==0.2.1  # pinned: 0.2.1 bundles its own Chromium; kaleido>=1.0 needs a separately installed Chrome
+ast-comments==1.3.0
+python-dotenv==1.2.1
+pydantic==2.13.4
+jupyter
+pytest
